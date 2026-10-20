@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['currency', 'defaultReminders', 'theme', 'userId', 'userName', 'onboarded']) &&
+             data.keys().size() == 6 &&
+             data.currency in ['XOF', 'EUR', 'USD', 'GBP', 'XAF', 'GNF'] &&
+             data.defaultReminders is int &&
+             data.theme in ['light', 'dark', 'system'] &&
+             data.userId is string && data.userId.size() <= 64 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.onboarded is bool;
+    }
+
+    function isValidLoan(data) {
+      return data.keys().hasAll(['id', 'title', 'type', 'direction', 'personName', 'loanDate', 'dueDate', 'isP2P', 'p2pStatus', 'status', 'createdAt']) &&
+             data.id is string && data.id.size() <= 64 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.type in ['money', 'object'] &&
+             data.direction in ['given', 'received'] &&
+             data.personName is string && data.personName.size() <= 100 &&
+             data.loanDate is string &&
+             data.dueDate is string &&
+             data.isP2P is bool &&
+             data.p2pStatus in ['none', 'pending', 'confirmed', 'rejected'] &&
+             data.status in ['active', 'returned'] &&
+             (data.type == 'money' ? data.amount is number : true) &&
+             (data.type == 'object' ? data.description is string : true);
+    }
+
+    function isValidP2P(data) {
+      return data.keys().hasAll(['id', 'senderUserId', 'receiverUserId', 'loanId', 'status', 'timestampRequest']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.senderUserId is string && data.receiverUserId is string &&
+             data.loanId is string &&
+             data.status in ['none', 'pending', 'confirmed', 'rejected'] &&
+             data.timestampRequest is string;
+    }
+
+    // --- Match Blocks ---
+
+    match /p2p_transactions/{txId} {
+      allow get: if isSignedIn() && (request.auth.uid == existing().senderUserId || request.auth.uid == existing().receiverUserId);
+      allow create: if isSignedIn() && request.auth.uid == incoming().senderUserId && isValidP2P(incoming());
+      allow update: if isSignedIn() && (
+        (request.auth.uid == existing().receiverUserId && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'timestampConfirm'])) ||
+        (request.auth.uid == existing().senderUserId && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidId(uid) && isValidUser(incoming());
+      allow update: if isOwner(uid) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['currency', 'defaultReminders', 'theme', 'userName', 'onboarded'])
+      );
+      
+      match /loans/{loanId} {
+        allow list: if isOwner(uid);
+        allow get: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidId(loanId) && isValidLoan(incoming());
+        allow update: if isOwner(uid) && isValidLoan(incoming()) && (
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'returnDate'])) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'amount', 'description', 'personName', 'personContact', 'loanDate', 'dueDate', 'photoUri', 'isP2P', 'p2pStatus']))
+        );
+        allow delete: if isOwner(uid);
+      }
+    }
+  }
+}

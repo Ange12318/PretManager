@@ -1,0 +1,8 @@
+{
+  "name": "PretManager",
+  "description": "Une application mobile 100% locale pour la gestion de prêts entre particuliers avec validation mutuelle P2P.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}

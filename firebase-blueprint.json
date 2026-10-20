@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "currency": { "type": "string", "enum": ["XOF", "EUR", "USD", "GBP", "XAF", "GNF"] },
+        "defaultReminders": { "type": "integer" },
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "userId": { "type": "string", "description": "Display P2P ID" },
+        "userName": { "type": "string" },
+        "onboarded": { "type": "boolean" }
+      },
+      "required": ["currency", "theme", "userId", "userName", "onboarded"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "A loan record (given or received)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["money", "object"] },
+        "direction": { "type": "string", "enum": ["given", "received"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "personName": { "type": "string" },
+        "personContact": { "type": "string" },
+        "loanDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "returnDate": { "type": "string", "format": "date" },
+        "photoUri": { "type": "string" },
+        "isP2P": { "type": "boolean" },
+        "p2pTransactionId": { "type": "string" },
+        "p2pStatus": { "type": "string", "enum": ["none", "pending", "confirmed", "rejected"] },
+        "status": { "type": "string", "enum": ["active", "returned"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "type", "direction", "personName", "loanDate", "dueDate", "isP2P", "p2pStatus", "status", "createdAt"]
+    },
+    "P2PTransaction": {
+      "title": "P2PTransaction",
+      "description": "A P2P validation transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderUserId": { "type": "string" },
+        "receiverUserId": { "type": "string" },
+        "loanId": { "type": "string" },
+        "status": { "type": "string", "enum": ["none", "pending", "confirmed", "rejected"] },
+        "timestampRequest": { "type": "string", "format": "date-time" },
+        "timestampConfirm": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderUserId", "receiverUserId", "loanId", "status", "timestampRequest"]
+    }
+  },
+  "firestore": {
+    "users/{uid}": {
+      "schema": "User",
+      "description": "User settings"
+    },
+    "users/{uid}/loans/{loanId}": {
+      "schema": "Loan",
+      "description": "List of loans for a user"
+    },
+    "p2p_transactions/{txId}": {
+      "schema": "P2PTransaction",
+      "description": "P2P verification requests"
+    }
+  }
+}
